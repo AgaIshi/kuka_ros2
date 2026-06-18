@@ -3,8 +3,8 @@
 A **self-contained ROS 2 workspace** for **Cartesian impedance control** of the
 KUKA LBR (iiwa / med) arms — with runtime stiffness tuning, a GUI teleop, and
 live stiffness-ellipsoid visualization. The same torque-based controllers run on
-**any LBR variant** and in **Gazebo simulation or on real hardware** by changing
-a single launch argument.
+**any LBR variant** (iiwa7/14, med7/14) in **Gazebo simulation** by changing a
+single launch argument.
 
 Everything needed is vendored in `src/` — just clone, build, and run.
 
@@ -118,25 +118,6 @@ ros2 launch kuka_control gazebo_rviz.launch.py model:=med7
 
 ---
 
-## Real hardware
-
-```bash
-ros2 launch kuka_control hardware.launch.py model:=<arm> ctrl:=cartesian_impedance_controller
-```
-Pre-flight checklist:
-1. FRI / Sunrise app running on the KUKA cabinet, matching FRI version and
-   **torque** command mode; robot in AUT.
-2. PC on the KUKA FRI ethernet port, reachable on UDP `30200`
-   (`config/lbr_system_config_torque.yaml`).
-3. Real-time priority allowed (`rt_prio: 80`) — set RT limits in
-   `/etc/security/limits.conf` or use an RT kernel.
-
-> **Topic note:** on hardware the target is remapped to `/lbr/target_frame`
-> (sim uses `/lbr/cartesian_impedance_controller/target_frame`). The stiffness
-> GUI topics are not remapped, so the GUI works on both.
-
----
-
 ## Controller evaluation (tracking plots)
 
 With the simulation running:
@@ -145,8 +126,7 @@ cd src/controller_evaluation
 python3 traj_sin.py     # sinusoidal reference -> commanded-vs-executed plot + MSE in outputs/
 ```
 The executed trajectory lags/attenuates the commanded sinusoid — the expected
-compliant tracking of an impedance controller. Set `SIM`, `ROBOT_TYPE` in
-`initialize.py` to switch the topic/frames between sim and hardware.
+compliant tracking of an impedance controller.
 
 ---
 
