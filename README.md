@@ -99,10 +99,6 @@ Push into the box, then change stiffness while in contact:
 ros2 topic pub -r 10 /lbr/cartesian_impedance_controller/target_frame geometry_msgs/msg/PoseStamped \
 "{header: {frame_id: lbr_link_0}, pose: {position: {x: 0.385, y: -0.55, z: 0.55}, orientation: {w: 1.0}}}"
 
-
----
-
-
 ## Controller evaluation (tracking plots)
 
 With the simulation running:
