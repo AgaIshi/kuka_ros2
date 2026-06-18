@@ -85,8 +85,7 @@ Wait for `Finished Impedance on_activate`.
 **2. Stiffness GUI:**
 ```bash
 ros2 run cartesian_impedance_controller stiffness_teleop_gui.py
-```
-Keys: `a/s` Tx · `d/f` Ty · `w/e` Tz · `t/g` Rx · `y/h` Ry · `o/i` Rz · `q` quit.
+
 
 **3. Move the end-effector (Cartesian target):**
 ```bash
@@ -99,46 +98,24 @@ Push into the box, then change stiffness while in contact:
 ```bash
 ros2 topic pub -r 10 /lbr/cartesian_impedance_controller/target_frame geometry_msgs/msg/PoseStamped \
 "{header: {frame_id: lbr_link_0}, pose: {position: {x: 0.385, y: -0.55, z: 0.55}, orientation: {w: 1.0}}}"
-```
-Sweep **Ty** in the GUI: high stiffness presses firmly into the box, low
-stiffness yields. Contact force ∝ stiffness (capped at `max_impedance_force`).
-The controller is a damped spring to the target (`D = 2√K`), so it reaches a
-stable press rather than bouncing.
+
 
 ---
 
-## Multi-arm
-
-Controllers are robot-independent (chain built from the URDF), so switching arms
-needs no code change — only `model:=`:
-```bash
-ros2 launch kuka_control gazebo_rviz.launch.py model:=iiwa14
-ros2 launch kuka_control gazebo_rviz.launch.py model:=med7
-```
-
----
 
 ## Controller evaluation (tracking plots)
 
 With the simulation running:
 ```bash
 cd src/controller_evaluation
-python3 traj_sin.py     # sinusoidal reference -> commanded-vs-executed plot + MSE in outputs/
+python3 traj_sin.py     
 ```
 The executed trajectory lags/attenuates the commanded sinusoid — the expected
 compliant tracking of an impedance controller.
 
 ---
 
-## Credits & license
+## Credits
 
 - KUKA hardware interface, descriptions, bringup: **lbr-stack**
   (https://github.com/lbr-stack/lbr_fri_ros2_stack).
-- Torque-controller framework: **ros2_effort_controller**
-  (https://github.com/lucabeber/ros2_effort_controller), Apache-2.0 —
-  see `src/controllers/LICENSE`.
-
-This repository vendors those stacks together with the `kuka_control`
-integration layer, the impedance-controller additions (runtime stiffness / GUI /
-ellipsoids), and the evaluation tooling, so the whole setup builds from a single
-clone.
