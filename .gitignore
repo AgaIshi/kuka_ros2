@@ -1,0 +1,15 @@
+# colcon (build from repo root)
+build/
+install/
+log/
+
+# python
+__pycache__/
+*.pyc
+
+# evaluation outputs (generated at runtime)
+src/controller_evaluation/outputs/*.png
+src/controller_evaluation/outputs/*.txt
+
+# editor
+.vscode/

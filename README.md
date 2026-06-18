@@ -1,0 +1,164 @@
+# kuka_lbr_impedance_ros2
+
+A **self-contained ROS 2 workspace** for **Cartesian impedance control** of the
+KUKA LBR (iiwa / med) arms — with runtime stiffness tuning, a GUI teleop, and
+live stiffness-ellipsoid visualization. The same torque-based controllers run on
+**any LBR variant** and in **Gazebo simulation or on real hardware** by changing
+a single launch argument.
+
+Everything needed is vendored in `src/` — just clone, build, and run.
+
+---
+
+## Repository layout
+
+This repo **is** the colcon workspace (build from the repo root):
+
+```
+kuka_lbr_impedance_ros2/
+└── src/
+    ├── kuka_control/            # launch + config (bring up arm + controller)
+    ├── controllers/             # torque controllers (ros2_effort_controller)
+    │   ├── cartesian_impedance_controller/   # + our stiffness/GUI/ellipsoid additions
+    │   ├── joint_impedance_controller/
+    │   ├── gravity_compensation/
+    │   ├── effort_controller_base/
+    │   └── debug_msg/
+    ├── lbr-stack/               # KUKA FRI hardware interface, descriptions, bringup
+    ├── controller_evaluation/   # benchmark trajectories + tracking plots
+    └── assets/
+```
+
+### What this project adds on top of the upstream stacks
+- **Runtime stiffness tuning** — single-key `std_msgs/String` commands on
+  `…/stiffness_command`; live values on `…/current_stiffness`.
+- **GUI teleop** (`stiffness_teleop_gui.py`) — window with per-axis bars, +/-
+  buttons, keyboard shortcuts, and a Close button.
+- **Stiffness ellipsoids** in RViz — green = translational, blue = rotational,
+  at the end-effector, scaled by the stiffness matrix.
+- **Rx/Ry/Rz** stiffness commands and a Gazebo **contact world** (box).
+
+---
+
+## Prerequisites
+
+- **Ubuntu 22.04 + ROS 2 Humble**
+- **Gazebo (Ignition / `ros_gz`)**
+- `sudo apt install ros-humble-rviz2 python3-colcon-common-extensions python3-rosdep`
+- Python (evaluation): `pip install numpy matplotlib` (optional scripts also use
+  `scipy roboticstoolbox-python pynput h5py`)
+
+---
+
+## Build
+
+```bash
+git clone https://github.com/AgaIshi/kuka_lbr_impedance_ros2.git
+cd kuka_lbr_impedance_ros2
+
+# system dependencies
+source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+
+# build  (single-threaded avoids out-of-memory on low-RAM machines)
+colcon build --symlink-install --parallel-workers 1
+
+source install/setup.bash
+```
+
+> Every new terminal must run:
+> `source /opt/ros/humble/setup.bash && source ~/kuka_lbr_impedance_ros2/install/setup.bash`
+
+---
+
+## Run in simulation
+
+**1. Gazebo + RViz (arm, box, ellipsoids):**
+```bash
+ros2 launch kuka_control gazebo_rviz.launch.py
+# choose arm:     model:=med7     (iiwa7 | iiwa14 | med7 | med14, default iiwa7)
+# headless:       rviz:=false
+# other control:  ctrl:=joint_impedance_controller
+```
+Wait for `Finished Impedance on_activate`.
+
+**2. Stiffness GUI:**
+```bash
+ros2 run cartesian_impedance_controller stiffness_teleop_gui.py
+```
+Keys: `a/s` Tx · `d/f` Ty · `w/e` Tz · `t/g` Rx · `y/h` Ry · `o/i` Rz · `q` quit.
+
+**3. Move the end-effector (Cartesian target):**
+```bash
+ros2 topic pub -r 10 /lbr/cartesian_impedance_controller/target_frame geometry_msgs/msg/PoseStamped \
+"{header: {frame_id: lbr_link_0}, pose: {position: {x: 0.4, y: 0.0, z: 0.6}, orientation: {w: 1.0}}}"
+```
+
+### Contact demo
+Push into the box, then change stiffness while in contact:
+```bash
+ros2 topic pub -r 10 /lbr/cartesian_impedance_controller/target_frame geometry_msgs/msg/PoseStamped \
+"{header: {frame_id: lbr_link_0}, pose: {position: {x: 0.385, y: -0.55, z: 0.55}, orientation: {w: 1.0}}}"
+```
+Sweep **Ty** in the GUI: high stiffness presses firmly into the box, low
+stiffness yields. Contact force ∝ stiffness (capped at `max_impedance_force`).
+The controller is a damped spring to the target (`D = 2√K`), so it reaches a
+stable press rather than bouncing.
+
+---
+
+## Multi-arm
+
+Controllers are robot-independent (chain built from the URDF), so switching arms
+needs no code change — only `model:=`:
+```bash
+ros2 launch kuka_control gazebo_rviz.launch.py model:=iiwa14
+ros2 launch kuka_control gazebo_rviz.launch.py model:=med7
+```
+
+---
+
+## Real hardware
+
+```bash
+ros2 launch kuka_control hardware.launch.py model:=<arm> ctrl:=cartesian_impedance_controller
+```
+Pre-flight checklist:
+1. FRI / Sunrise app running on the KUKA cabinet, matching FRI version and
+   **torque** command mode; robot in AUT.
+2. PC on the KUKA FRI ethernet port, reachable on UDP `30200`
+   (`config/lbr_system_config_torque.yaml`).
+3. Real-time priority allowed (`rt_prio: 80`) — set RT limits in
+   `/etc/security/limits.conf` or use an RT kernel.
+
+> **Topic note:** on hardware the target is remapped to `/lbr/target_frame`
+> (sim uses `/lbr/cartesian_impedance_controller/target_frame`). The stiffness
+> GUI topics are not remapped, so the GUI works on both.
+
+---
+
+## Controller evaluation (tracking plots)
+
+With the simulation running:
+```bash
+cd src/controller_evaluation
+python3 traj_sin.py     # sinusoidal reference -> commanded-vs-executed plot + MSE in outputs/
+```
+The executed trajectory lags/attenuates the commanded sinusoid — the expected
+compliant tracking of an impedance controller. Set `SIM`, `ROBOT_TYPE` in
+`initialize.py` to switch the topic/frames between sim and hardware.
+
+---
+
+## Credits & license
+
+- KUKA hardware interface, descriptions, bringup: **lbr-stack**
+  (https://github.com/lbr-stack/lbr_fri_ros2_stack).
+- Torque-controller framework: **ros2_effort_controller**
+  (https://github.com/lucabeber/ros2_effort_controller), Apache-2.0 —
+  see `src/controllers/LICENSE`.
+
+This repository vendors those stacks together with the `kuka_control`
+integration layer, the impedance-controller additions (runtime stiffness / GUI /
+ellipsoids), and the evaluation tooling, so the whole setup builds from a single
+clone.

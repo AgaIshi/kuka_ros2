@@ -1,0 +1,24 @@
+name: Jazzy prop-ctrl CI
+
+on:
+  push:
+    branches:
+      - "kuka-prop-ctrl"
+  pull_request:
+      branches:
+      - "kuka-prop-ctrl"
+
+jobs:
+  industrial_ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - {ROS_DISTRO: jazzy, ROS_REPO: main}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: kuka-prop-ctrl
+      - uses: 'ros-industrial/industrial_ci@master'
+        env: ${{ matrix.env }}
